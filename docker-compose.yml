@@ -1,0 +1,87 @@
+version: '3.2'
+
+services:
+
+  app:
+    build: .
+    container_name: spring-boot-elastic-apm-service
+    ports:
+      - 12001:12001
+    restart: unless-stopped 
+    networks:
+      - elk
+    environment:
+      - ELASTIC_APM_SERVICE_NAME="spring-boot-elastic-apm-service"
+      - ELASTIC_APM_APPLICATION_PACKAGES="com.dipsscor"
+      - ELASTIC_APM_SERVER_URLS="http://apm-server:8200"
+    depends_on:
+      - apm-server
+    links:
+      - apm-server
+    
+    
+    
+  elasticsearch:
+    build:
+      context: ./ElasticStack/elasticsearch/
+      args:
+        ELK_VERSION: 7.5.0
+    volumes:
+      - type: bind
+        source: ./ElasticStack/elasticsearch/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: elasticsearch
+        target: /usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      ELASTIC_PASSWORD: changeme
+      # Use single node discovery in order to disable production mode and avoid bootstrap checks
+      # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+      discovery.type: single-node
+    networks:
+      - elk
+
+
+  kibana:
+    build:
+      context: ./ElasticStack/kibana/
+      args:
+        ELK_VERSION: 7.5.0
+    volumes:
+      - type: bind
+        source: ./ElasticStack/kibana/config/kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
+    ports:
+      - "5601:5601"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+         
+  apm-server:
+    build:
+      context: ./ElasticStack/apm
+      dockerfile: Dockerfile
+      args:
+        ELK_VERSION: 7.5.0
+    volumes:
+      - ./ElasticStack/apm/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro
+    ports:
+      - "8200:8200"
+    links:
+      - elasticsearch
+    networks:
+      - elk
+
+networks:
+  elk:
+    driver: bridge
+
+volumes:
+  elasticsearch:

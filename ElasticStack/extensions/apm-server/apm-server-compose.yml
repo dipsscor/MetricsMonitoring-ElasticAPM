@@ -1,0 +1,16 @@
+version: '3.2'
+
+services:
+  apm-server:
+    build:
+      context: ./ElasticStack/extensions/apm-server/
+      args:
+        ELK_VERSION: 7.5.0
+    volumes:
+      - ./ElasticStack/extensions/apm-server/config/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro
+    ports:
+      - "8200:8200"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
